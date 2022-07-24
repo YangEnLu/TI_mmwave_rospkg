@@ -1,3 +1,40 @@
+/*
+* @file DataHandlerClass.cpp
+*
+* @brief
+* Handles and publishes incoming data from the sensor and .
+*
+* \par
+* NOTE:
+* (C) Copyright 2020 Texas Instruments, Inc.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions
+* are met:
+*
+* Redistributions of source code must retain the above copyright
+* notice, this list of conditions and the following disclaimer.
+*
+* Redistributions in binary form must reproduce the above copyright
+* notice, this list of conditions and the following disclaimer in the
+* documentation and/or other materials provided with the
+* distribution.
+*
+* Neither the name of Texas Instruments Incorporated nor the names of
+* from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+* "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+* LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+* A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+* OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+* SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+* LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+* DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+* THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+* (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+* OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 #include <DataHandlerClass.h>
 #define PCL_NO_PRECOMPILE
 
@@ -7,7 +44,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl_conversions/pcl_conversions.h>
-
+#include <math.h>
 struct mmWaveCloudType
 {
     PCL_ADD_POINT4D;
@@ -16,7 +53,8 @@ struct mmWaveCloudType
         struct
         {
             float intensity;
-            float velocity;
+            float range;
+            float doppler;
         };
         float data_c[4];
     };
@@ -28,7 +66,8 @@ POINT_CLOUD_REGISTER_POINT_STRUCT (mmWaveCloudType,
                                     (float, y, y)
                                     (float, z, z)
                                     (float, intensity, intensity)
-                                    (float, velocity, velocity))
+				    (float, range, range)
+                                    (float, doppler, doppler))
 
 DataUARTHandler::DataUARTHandler(ros::NodeHandle* nh) : currentBufp(&pingPongBuffers[0]) , nextBufp(&pingPongBuffers[1]) {
     DataUARTHandler_pub = nh->advertise<sensor_msgs::PointCloud2>("/ti_mmwave/radar_scan_pcl", 100);
@@ -487,9 +526,8 @@ void *DataUARTHandler::sortIncomingData( void )
                     RScan->points[i].x = mmwData.newObjOut.y;   // ROS standard coordinate system X-axis is forward which is the mmWave sensor Y-axis
                     RScan->points[i].y = -mmwData.newObjOut.x;  // ROS standard coordinate system Y-axis is left which is the mmWave sensor -(X-axis)
                     RScan->points[i].z = mmwData.newObjOut.z;   // ROS standard coordinate system Z-axis is up which is the same as mmWave sensor Z-axis
-
-                    RScan->points[i].velocity = mmwData.newObjOut.velocity;
-
+                    RScan->points[i].doppler = mmwData.newObjOut.velocity;
+                    RScan->points[i].range = sqrt(pow(mmwData.newObjOut.x,2)+pow(mmwData.newObjOut.y,2)+pow(mmwData.newObjOut.z,2));
                     radarscan.header.frame_id = frameID;
                     radarscan.header.stamp = ros::Time::now();
 
